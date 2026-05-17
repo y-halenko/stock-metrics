@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Metrics — навчальний довідник</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --border: #1f2937;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-soft: #7dd3fc;
+      --good: #4ade80;
+      --mid: #fbbf24;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static !important; }
+    }
+    .sidebar {
+      position: sticky;
+      top: 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+    }
+    .sidebar h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 12px;
+    }
+    .nav-links {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nav-links a {
+      color: var(--accent-soft);
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 6px 8px;
+      border-radius: 8px;
+    }
+    .nav-links a:hover { background: #1f2937; }
+    .main { min-width: 0; }
+    h1 {
+      font-size: 2rem;
+      color: var(--accent);
+      margin: 0 0 8px;
+    }
+    .intro {
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 24px;
+      align-items: center;
+    }
+    .search {
+      flex: 1;
+      min-width: 200px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid #334155;
+      background: var(--card);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    .search:focus {
+      outline: 2px solid var(--accent);
+      border-color: transparent;
+    }
+    .btn-ghost {
+      border: 1px solid #334155;
+      background: var(--card);
+      color: var(--accent-soft);
+      border-radius: 999px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-ghost:hover { background: #1f2937; }
+    .section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-header h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      color: var(--accent-soft);
+    }
+    .section-toggle, .metric-toggle {
+      flex-shrink: 0;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: var(--accent-soft);
+      border-radius: 999px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .section-toggle:hover, .metric-toggle:hover { background: #1f2937; }
+    .section-toggle::after, .metric-toggle::after {
+      content: " ▼";
+      font-size: 0.75em;
+      display: inline-block;
+      transition: transform 0.2s;
+    }
+    .section.collapsed .section-toggle::after,
+    .metric.collapsed .metric-toggle::after {
+      transform: rotate(-90deg);
+    }
+    .section.collapsed .section-body { display: none; }
+    .section.collapsed .section-header { border-bottom: none; }
+    .section.hidden { display: none; }
+    .metric {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 18px;
+    }
+    .metric:last-child { border-bottom: none; }
+    .metric.hidden { display: none; }
+    .metric-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .metric-head-main { flex: 1; min-width: 0; }
+    .metric-name { font-size: 1.05rem; }
+    .metric-summary {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .metric.collapsed .metric-detail { display: none; }
+    .metric-detail { margin-top: 16px; padding-top: 16px; border-top: 1px dashed #334155; }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .detail-card {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .detail-card h3 {
+      margin: 0 0 8px;
+      font-size: 0.88rem;
+      color: #f8fafc;
+    }
+    .detail-card p { margin: 0; font-size: 0.92rem; color: #cbd5e1; }
+    .formula {
+      font-family: ui-monospace, monospace;
+      color: var(--accent) !important;
+    }
+    .examples-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    @media (max-width: 600px) {
+      .examples-row { grid-template-columns: 1fr; }
+    }
+    .example {
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 0.92rem;
+    }
+    .example-good {
+      background: rgba(74, 222, 128, 0.08);
+      border: 1px solid rgba(74, 222, 128, 0.25);
+    }
+    .example-bad {
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+    }
+    .example-label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.8rem;
+      margin-bottom: 6px;
+    }
+    .example-good .example-label { color: var(--good); }
+    .example-bad .example-label { color: var(--bad); }
+    .example p { margin: 0; color: #cbd5e1; }
+    .benchmark-block {
+      margin-top: 14px;
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid #334155;
+    }
+    .benchmark-block h3 {
+      margin: 0 0 6px;
+      font-size: 0.95rem;
+    }
+    .benchmark-note {
+      margin: 0 0 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .table-wrap { overflow-x: auto; }
+    .benchmark-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid #334155;
+    }
+    .benchmark-table th { color: var(--muted); font-weight: 600; }
+    .val-good { color: var(--good); }
+    .val-mid { color: var(--mid); }
+    .val-bad { color: var(--bad); }
+    .pitfall {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: rgba(56, 189, 248, 0.08);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      color: #cbd5e1;
+    }
+    .tooltip-wrapper {
+      position: relative;
+      cursor: help;
+    }
+    .tooltip-text {
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 8px);
+      width: 260px;
+      background: rgba(15, 23, 42, 0.98);
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.88rem;
+      opacity: 0;
+      visibility: hidden;
+      z-index: 30;
+      pointer-events: none;
+    }
+    .tooltip-wrapper:hover .tooltip-text {
+      opacity: 1;
+      visibility: visible;
+    }
+    .tooltip-en {
+      display: block;
+      font-weight: 600;
+      color: var(--accent-soft);
+      margin-bottom: 4px;
+    }
+    .footer {
+      margin-top: 24px;
+      padding: 20px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(6,182,212,0.12), rgba(59,130,246,0.12));
+      border: 1px solid rgba(56,189,248,0.2);
+    }
+    .footer h2 { font-size: 1.2rem; color: var(--accent-soft); margin: 0 0 8px; }
+    .footer p { margin: 0 0 8px; color: var(--muted); }
+    .no-results {
+      display: none;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .no-results.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Зміст</h2>
+      <nav class="nav-links"><a href="#sec-size">1. Розмір компанії</a>
+<a href="#sec-income">2. Доходи та прибуток</a>
+<a href="#sec-valuation">3. Оцінка (Valuation)</a>
+<a href="#sec-profitability">4. Прибутковість</a>
+<a href="#sec-debt">5. Борги та ліквідність</a>
+<a href="#sec-growth">6. Зростання</a>
+<a href="#sec-ownership">7. Акції та власність</a>
+<a href="#sec-technical">8. Технічні показники</a>
+<a href="#sec-dividends">9. Дивіденди</a></nav>
+    </aside>
+    <main class="main">
+      <h1>📊 Довідник фондових метрик</h1>
+      <p class="intro">Навчальний формат без прив’язки до конкретної акції. Короткий опис завжди видно; деталі, приклади та орієнтири по секторах — під кнопкою «Детальніше».</p>
+      <div class="toolbar">
+        <input type="search" class="search" id="search" placeholder="Пошук метрики (P/E, ROE, margin…)" autocomplete="off">
+        <button type="button" class="btn-ghost" id="expand-all">Розгорнути все</button>
+        <button type="button" class="btn-ghost" id="collapse-all">Згорнути все</button>
+      </div>
+      <p class="no-results" id="no-results">Нічого не знайдено. Спробуй іншу назву.</p>
+      
+    <section class="section" id="sec-size" data-section="1">
+      <div class="section-header">
+        <h2>1. РОЗМІР КОМПАНІЇ</h2>
+        <button type="button" class="section-toggle" aria-expanded="true">Згорнути</button>
+      </div>
+      <div class="section-body">
+      <article class="metric collapsed" id="market-cap" data-search="market cap market capitalization скільки ринок платить за весь бізнес на біржі.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Market Cap</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Market Capitalization</span>Скільки ринок платить за весь бізнес на біржі.</span>
+            </span>
+            <p class="metric-summary">Скільки ринок платить за весь бізнес на біржі.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Ринкова капіталізація — це ціна акції × кількість акцій. Це не «гроші в сейфі», а поточна оцінка інвесторів.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Price × Shares Outstanding</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Порівнюй лише в межах одного сектору та класу капіталізації (large / mid / small cap).</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Усі публічні компанії.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Компанія зі зростаючим revenue, адекватним боргом і cap, що відповідає зрілості бізнесу.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Оцінка зростає лише через hype, без покращення фундаменталу.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Tech growth</td><td class="val-good">&gt;$50B часто premium</td><td class="val-mid">$5B–$50B</td><td class="val-bad">&lt;$2B високий ризик</td></tr><tr><td>Utilities</td><td class="val-good">&gt;$20B стабільність</td><td class="val-mid">$5B–$20B</td><td class="val-bad">Дуже мала ліквідність</td></tr><tr><td>Banks</td><td class="val-good">&gt;$30B systemic</td><td class="val-mid">$10B–$30B</td><td class="val-bad">Мікро-банки — окремий ризик</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Велика cap ≠ якісний бізнес. Маленька cap ≠ автоматично недооцінка.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="ev" data-search="enterprise value (ev) enterprise value справжня «ціна купівлі» бізнесу з урахуванням боргу та готівки.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Enterprise Value (EV)</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Enterprise Value</span>Справжня «ціна купівлі» бізнесу з урахуванням боргу та готівки.</span>
+            </span>
+            <p class="metric-summary">Справжня «ціна купівлі» бізнесу з урахуванням боргу та готівки.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>EV показує, скільки теоретично коштує придбати весь бізнес: акціонерна вартість + чистий борг.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Market Cap + Total Debt − Cash &amp; Equivalents</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Краще за Market Cap, коли у компаній різний рівень боргу.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Industrial, telecom, energy, M&amp;A-аналіз.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Низький EV/EBITDA при сильному cash flow і зростаючому бізнесі.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Високий EV при падаючому EBITDA і зростаючому борзі.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Capital-intensive</td><td class="val-good">EV близький до fair value</td><td class="val-mid">EV &gt;&gt; Market Cap — багато боргу</td><td class="val-bad">EV &lt; Market Cap — net cash</td></tr><tr><td>SaaS</td><td class="val-good">Низький борг, EV ≈ cap</td><td class="val-mid">Помірний</td><td class="val-bad">Високий борг при слабкому FCF</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Не плутай EV з виручкою. Для банків EV застосовують обережно.
+          </div>
+        </div>
+      </article>
+      </div>
+    </section>
+
+    <section class="section" id="sec-income" data-section="2">
+      <div class="section-header">
+        <h2>2. ДОХОДИ ТА ПРИБУТОК</h2>
+        <button type="button" class="section-toggle" aria-expanded="true">Згорнути</button>
+      </div>
+      <div class="section-body">
+      <article class="metric collapsed" id="revenue" data-search="sales (revenue) revenue (total sales) гроші від клієнтів до вирахування витрат.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Sales (Revenue)</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Revenue (Total Sales)</span>Гроші від клієнтів до вирахування витрат.</span>
+            </span>
+            <p class="metric-summary">Гроші від клієнтів до вирахування витрат.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Revenue — верхній рядок звіту про прибутки. Без неї немає сенсу дивитись margins.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Сума всіх продажів за період</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>YoY та QoQ темпи росту, не абсолютна цифра.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Growth, retail, SaaS, consumer.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Стабільний органічний ріст + покращення margins.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Revenue росте, profit падає — «growth at all costs».</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>SaaS</td><td class="val-good">15–40% YoY growth</td><td class="val-mid">5–15%</td><td class="val-bad">&lt;5% або падіння</td></tr><tr><td>Retail</td><td class="val-good">3–8% стабільно</td><td class="val-mid">0–3%</td><td class="val-bad">Негативний ріст 2+ квартали</td></tr><tr><td>Mature industrial</td><td class="val-good">2–6%</td><td class="val-mid">0–2%</td><td class="val-bad">Падіння без плану реструктуризації</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Revenue може рости за рахунок знижок або одноразових контрактів.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="net-income" data-search="income (net income) net income прибуток після всіх витрат, податків і відсотків.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Income (Net Income)</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Net Income</span>Прибуток після всіх витрат, податків і відсотків.</span>
+            </span>
+            <p class="metric-summary">Прибуток після всіх витрат, податків і відсотків.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Чистий прибуток — те, що формально «залишається» акціонерам (до дивідендів).</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Revenue − COGS − OpEx − Interest − Taxes</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Разом із margins, FCF і якістю earnings (one-offs).</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Усі прибуткові компанії.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Передбачуваний прибуток + позитивний FCF.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Accounting profit без готівки.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Quality compounders</td><td class="val-good">Зростає стабільно</td><td class="val-mid">Флет</td><td class="val-bad">Волатильний / негативний без причини</td></tr><tr><td>Cyclicals</td><td class="val-good">Пік циклу — високий</td><td class="val-mid">Середній</td><td class="val-bad">Збитки в даунтренді без балансу</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Одноразові gains/losses спотворюють картину.
+          </div>
+        </div>
+      </article>
+      </div>
+    </section>
+
+    <section class="section" id="sec-valuation" data-section="3">
+      <div class="section-header">
+        <h2>3. ОЦІНКА (VALUATION)</h2>
+        <button type="button" class="section-toggle" aria-expanded="true">Згорнути</button>
+      </div>
+      <div class="section-body">
+      <article class="metric collapsed" id="pe" data-search="p/e price-to-earnings ratio скільки років поточного прибутку «коштує» акція.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">P/E</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Price-to-Earnings Ratio</span>Скільки років поточного прибутку «коштує» акція.</span>
+            </span>
+            <p class="metric-summary">Скільки років поточного прибутку «коштує» акція.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>P/E = ціна / прибуток на акцію. Нижче — дешевше відносно прибутку (якщо прибуток якісний).</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Price / EPS (trailing)</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Сектор, історичний діапазон компанії, peers.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Value, dividend, зрілі компанії з прибутком.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>P/E нижче сектору при кращому ROE/рості.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Дуже низький P/E через structural decline.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Banks</td><td class="val-good">8–12</td><td class="val-mid">12–15</td><td class="val-bad">&gt;18 без росту</td></tr><tr><td>Tech growth</td><td class="val-good">25–50+</td><td class="val-mid">15–25</td><td class="val-bad">&lt;15 лише якщо ріст підтверджений</td></tr><tr><td>Consumer staples</td><td class="val-good">18–25</td><td class="val-mid">25–30</td><td class="val-bad">&gt;35 без catalyst</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Негативний EPS → P/E безсенсовий. Одноразовий EPS занижує P/E.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="forward-pe" data-search="forward p/e forward price-to-earnings ratio p/e на основі очікуваного (майбутнього) прибутку.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Forward P/E</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Forward Price-to-Earnings Ratio</span>P/E на основі очікуваного (майбутнього) прибутку.</span>
+            </span>
+            <p class="metric-summary">P/E на основі очікуваного (майбутнього) прибутку.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Відображає очікування аналітиків. Нижчий за trailing — ринок чекає зростання earnings.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Price / Expected EPS (next 12M)</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Forward vs trailing P/E, consensus revisions.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Growth, earnings turnaround.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Forward P/E падає при підтвердженні guidance.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Forward росте квартал за кварталом — earnings misses.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Growth</td><td class="val-good">Forward &lt;&lt; Trailing</td><td class="val-mid">Близькі</td><td class="val-bad">Forward &gt; Trailing — падіння очікувань</td></tr><tr><td>Value</td><td class="val-good">&lt;12 forward</td><td class="val-mid">12–18</td><td class="val-bad">&gt;20 без growth</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Занижені або завищені прогнози аналітиків.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="peg" data-search="peg price/earnings to growth ratio p/e з урахуванням темпу зростання прибутку.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">PEG</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Price/Earnings to Growth Ratio</span>P/E з урахуванням темпу зростання прибутку.</span>
+            </span>
+            <p class="metric-summary">P/E з урахуванням темпу зростання прибутку.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>PEG ≈ 1 часто вважають «fair» для growth. &lt;1 — потенційно дешево за ріст.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">P/E ÷ EPS Growth Rate (%)</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Компанії з подібним growth profile.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Growth investing.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>PEG &lt;1 при високій якості earnings.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>PEG низький, бо growth падає (value trap).</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>High growth</td><td class="val-good">0.8–1.5</td><td class="val-mid">1.5–2.5</td><td class="val-bad">&gt;3 — переоцінка</td></tr><tr><td>Slow growth</td><td class="val-good">N/A або &lt;1</td><td class="val-mid">1–2</td><td class="val-bad">&gt;2</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Growth estimate нестабільний; PEG погано працює при EPS &lt; 0.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="ps" data-search="p/s price-to-sales ratio скільки платиш за $1 виручки.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">P/S</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Price-to-Sales Ratio</span>Скільки платиш за $1 виручки.</span>
+            </span>
+            <p class="metric-summary">Скільки платиш за $1 виручки.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Корисно для збиткових або ранніх growth-компаній, де P/E не працює.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Market Cap / Revenue</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Сектор + margin profile.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>SaaS, e-commerce, pre-profit.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Помірний P/S + покращення gross margin.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Високий P/S + падаючий revenue.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>SaaS</td><td class="val-good">5–15+ якщо high growth</td><td class="val-mid">2–5</td><td class="val-bad">&lt;1 без path to profit</td></tr><tr><td>Retail</td><td class="val-good">0.3–1.0</td><td class="val-mid">1–2</td><td class="val-bad">&gt;3 без differentiation</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Низький P/S при низьких margins — не bargain.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="pb" data-search="p/b price-to-book ratio ціна акції відносно балансової вартості активів.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">P/B</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Price-to-Book Ratio</span>Ціна акції відносно балансової вартості активів.</span>
+            </span>
+            <p class="metric-summary">Ціна акції відносно балансової вартості активів.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>P/B &lt;1 — торгується нижче book (можливо distressed або value).</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Price / Book Value per Share</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Banks, insurance, industrials.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Financials, asset-heavy.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>P/B &lt;1 + ROE покращується.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Низький P/B + поганий ROE роками.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Banks</td><td class="val-good">0.8–1.2</td><td class="val-mid">1.2–1.5</td><td class="val-bad">&gt;2 без ROE</td></tr><tr><td>Tech</td><td class="val-good">5–15+</td><td class="val-mid">3–5</td><td class="val-bad">Book мало релевантний</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Intangibles та write-downs спотворюють book.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="ev-ebitda" data-search="ev/ebitda enterprise value to ebitda ratio оцінка бізнесу відносно операційного cash proxy.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">EV/EBITDA</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Enterprise Value to EBITDA Ratio</span>Оцінка бізнесу відносно операційного cash proxy.</span>
+            </span>
+            <p class="metric-summary">Оцінка бізнесу відносно операційного cash proxy.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Стандарт у M&amp;A. EBITDA ігнорує капзатрати — дивись також FCF.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Enterprise Value / EBITDA</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Peers, історія угод у секторі.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Telecom, industrial, LBO-аналіз.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Нижче сектору при стабільному EBITDA.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Низький multiple через падаючий EBITDA.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Telecom</td><td class="val-good">6–9</td><td class="val-mid">9–12</td><td class="val-bad">&gt;14</td></tr><tr><td>Quality industrial</td><td class="val-good">8–12</td><td class="val-mid">12–16</td><td class="val-bad">&gt;18 без growth</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> EBITDA ≠ free cash flow.
+          </div>
+        </div>
+      </article>
+      </div>
+    </section>
+
+    <section class="section" id="sec-profitability" data-section="4">
+      <div class="section-header">
+        <h2>4. ПРИБУТКОВІСТЬ</h2>
+        <button type="button" class="section-toggle" aria-expanded="true">Згорнути</button>
+      </div>
+      <div class="section-body">
+      <article class="metric collapsed" id="gross-margin" data-search="gross margin gross profit margin скільки залишається після прямої собівартості.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Gross Margin</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Gross Profit Margin</span>Скільки залишається після прямої собівартості.</span>
+            </span>
+            <p class="metric-summary">Скільки залишається після прямої собівартості.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Показує pricing power і ефективність виробництва/постачання.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">(Revenue − COGS) / Revenue × 100%</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Тренд 3–5 років, peers.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Retail, manufacturing, SaaS.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Зростаючий або стабільно високий margin.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Стиснення 3+ квартали поспіль.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>SaaS</td><td class="val-good">&gt;70%</td><td class="val-mid">50–70%</td><td class="val-bad">&lt;40%</td></tr><tr><td>Grocery retail</td><td class="val-good">25–30%</td><td class="val-mid">20–25%</td><td class="val-bad">&lt;20%</td></tr><tr><td>Luxury</td><td class="val-good">&gt;60%</td><td class="val-mid">45–60%</td><td class="val-bad">Стиснення margin</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Різні облікові політики COGS.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="op-margin" data-search="operating margin operating profit margin прибутковість основної діяльності.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Operating Margin</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Operating Profit Margin</span>Прибутковість основної діяльності.</span>
+            </span>
+            <p class="metric-summary">Прибутковість основної діяльності.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Враховує OPEX: маркетинг, R&amp;D, адміністрацію.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Operating Income / Revenue × 100%</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Сектор + scale effects.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Усі operating businesses.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Operating leverage — margin росте з revenue.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Revenue ↑, op margin ↓.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Big Tech</td><td class="val-good">25–40%+</td><td class="val-mid">15–25%</td><td class="val-bad">&lt;10%</td></tr><tr><td>Airlines</td><td class="val-good">5–12% у циклі</td><td class="val-mid">0–5%</td><td class="val-bad">Негативний у кризі</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> One-time restructuring в OpIncome.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="profit-margin" data-search="profit margin net profit margin частка revenue, що стає чистим прибутком.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Profit Margin</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Net Profit Margin</span>Частка revenue, що стає чистим прибутком.</span>
+            </span>
+            <p class="metric-summary">Частка revenue, що стає чистим прибутком.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Підсумок усієї економіки бізнесу.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Net Income / Revenue × 100%</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Peers, історія компанії.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Усі прибуткові компанії.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Стабільний або зростаючий net margin.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Volatile margin без cyclical пояснення.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Software</td><td class="val-good">15–30%</td><td class="val-mid">8–15%</td><td class="val-bad">&lt;5%</td></tr><tr><td>Retail</td><td class="val-good">2–5%</td><td class="val-mid">1–2%</td><td class="val-bad">&lt;1%</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Tax benefits / asset sales.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="roe" data-search="roe return on equity наскільки ефективно використовується капітал акціонерів.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">ROE</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Return on Equity</span>Наскільки ефективно використовується капітал акціонерів.</span>
+            </span>
+            <p class="metric-summary">Наскільки ефективно використовується капітал акціонерів.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Високий ROE + низький ризик = compounder. Високий ROE + високий борг = ризик.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Net Income / Shareholders' Equity × 100%</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Сектор, cost of equity, leverage.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Banks, quality stocks, Buffett-style.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>ROE &gt;15% стабільно, помірний борг.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>ROE високий лише через leverage.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Quality</td><td class="val-good">&gt;15–20%</td><td class="val-mid">10–15%</td><td class="val-bad">&lt;8% тривало</td></tr><tr><td>Utilities</td><td class="val-good">8–12%</td><td class="val-mid">6–8%</td><td class="val-bad">&lt;5%</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Buybacks знижують equity і штучно піднімають ROE.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="roic" data-search="roic return on invested capital прибутковість усього інвестованого капіталу (без спотворення leverage).">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">ROIC</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Return on Invested Capital</span>Прибутковість усього інвестованого капіталу (без спотворення leverage).</span>
+            </span>
+            <p class="metric-summary">Прибутковість усього інвестованого капіталу (без спотворення leverage).</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>ROIC &gt; WACC → компанія створює вартість.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">NOPAT / Invested Capital × 100%</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>WACC, peers, 5Y trend.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Capital allocation, industrial, conglomerates.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>ROIC стабільно вище WACC.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>ROIC падає при M&amp;A spree.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Wide moat</td><td class="val-good">&gt;12–15%</td><td class="val-mid">8–12%</td><td class="val-bad">&lt;WACC</td></tr><tr><td>Commodities</td><td class="val-good">Циклічний</td><td class="val-mid">На піку високий</td><td class="val-bad">Нижче WACC у даунтренді</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Різні визначення invested capital.
+          </div>
+        </div>
+      </article>
+      </div>
+    </section>
+
+    <section class="section" id="sec-debt" data-section="5">
+      <div class="section-header">
+        <h2>5. БОРГИ ТА ЛІКВІДНІСТЬ</h2>
+        <button type="button" class="section-toggle" aria-expanded="true">Згорнути</button>
+      </div>
+      <div class="section-body">
+      <article class="metric collapsed" id="debt-equity" data-search="debt/equity debt-to-equity ratio співвідношення боргу до власного капіталу.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Debt/Equity</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Debt-to-Equity Ratio</span>Співвідношення боргу до власного капіталу.</span>
+            </span>
+            <p class="metric-summary">Співвідношення боргу до власного капіталу.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Скільки боргу на кожен $1 equity.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Total Debt / Shareholders' Equity</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Сектор norms (банки vs tech).</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Industrial, real estate, utilities.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Помірний D/E + покриття відсотків.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>D/E росте при падаючому FCF.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Tech</td><td class="val-good">&lt;0.5</td><td class="val-mid">0.5–1.0</td><td class="val-bad">&gt;1.5</td></tr><tr><td>Utilities</td><td class="val-good">1.0–1.5 норма</td><td class="val-mid">1.5–2.0</td><td class="val-bad">&gt;2.5</td></tr><tr><td>REITs</td><td class="val-good">Високий leverage OK</td><td class="val-mid">—</td><td class="val-bad">Порушення covenants</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Off-balance sheet debt не врахований.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="current-ratio" data-search="current ratio current ratio чи покривають короткострокові активи короткострокові зобов’язання.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Current Ratio</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Current Ratio</span>Чи покривають короткострокові активи короткострокові зобов’язання.</span>
+            </span>
+            <p class="metric-summary">Чи покривають короткострокові активи короткострокові зобов’язання.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>&gt;1 — теоретично може погасити short-term борги.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Current Assets / Current Liabilities</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Сектор (retail vs software).</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Manufacturing, retail, distressed analysis.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Стабільний 1.5–2.5 без надлишку idle cash.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>&lt;1.0 два+ квартали.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>General</td><td class="val-good">1.5–3.0</td><td class="val-mid">1.0–1.5</td><td class="val-bad">&lt;1.0</td></tr><tr><td>Retail</td><td class="val-good">1.0–1.5</td><td class="val-mid">0.8–1.0</td><td class="val-bad">&lt;0.8</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Застарілий inventory завищує ratio.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="quick-ratio" data-search="quick ratio quick ratio (acid-test) ліквідність без урахування запасів.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Quick Ratio</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Quick Ratio (Acid-Test)</span>Ліквідність без урахування запасів.</span>
+            </span>
+            <p class="metric-summary">Ліквідність без урахування запасів.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Суворіша перевірка здатності швидко платити борги.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">(Current Assets − Inventory) / Current Liabilities</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Разом із current ratio.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Retail, manufacturing.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Quick ≥1 при адекватному current.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Quick &lt;0.5 при зростаючих liabilities.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Industrial</td><td class="val-good">&gt;1.0</td><td class="val-mid">0.7–1.0</td><td class="val-bad">&lt;0.7</td></tr><tr><td>SaaS</td><td class="val-good">Часто &gt;2</td><td class="val-mid">1–2</td><td class="val-bad">&lt;1</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Receivables quality matters.
+          </div>
+        </div>
+      </article>
+      </div>
+    </section>
+
+    <section class="section" id="sec-growth" data-section="6">
+      <div class="section-header">
+        <h2>6. ЗРОСТАННЯ</h2>
+        <button type="button" class="section-toggle" aria-expanded="true">Згорнути</button>
+      </div>
+      <div class="section-body">
+      <article class="metric collapsed" id="eps-next-y" data-search="eps next y eps growth — next year очікуваний ріст прибутку на акцію на наступний рік.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">EPS next Y</strong>
+              <span class="tooltip-text"><span class="tooltip-en">EPS Growth — Next Year</span>Очікуваний ріст прибутку на акцію на наступний рік.</span>
+            </span>
+            <p class="metric-summary">Очікуваний ріст прибутку на акцію на наступний рік.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Консенсус-прогноз аналітиків. Впливає на forward P/E та PEG.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">(EPS₁ᵧ − EPS₀) / EPS₀ × 100%</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Guidance компанії, revisions trend.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Growth stocks.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Upward revisions + beat rate.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Serial earnings misses.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Growth</td><td class="val-good">&gt;15–25%</td><td class="val-mid">8–15%</td><td class="val-bad">&lt;5%</td></tr><tr><td>Mature</td><td class="val-good">5–10%</td><td class="val-mid">0–5%</td><td class="val-bad">Негативний</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Sandbagging / overoptimistic analysts.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="eps-5y" data-search="eps next 5y eps growth — 5-year estimate очікуваний середньорічний ріст eps на 5 років.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">EPS next 5Y</strong>
+              <span class="tooltip-text"><span class="tooltip-en">EPS Growth — 5-Year Estimate</span>Очікуваний середньорічний ріст EPS на 5 років.</span>
+            </span>
+            <p class="metric-summary">Очікуваний середньорічний ріст EPS на 5 років.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Довгостроковий growth narrative. Для PEG та DCF-чутливих моделей.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">CAGR EPS (consensus)</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Історичний CAGR vs прогноз.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Long-term growth investing.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Прогноз підкріплений runway (TAM, margins).</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>5Y growth падає щороку.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Compounders</td><td class="val-good">12–20%</td><td class="val-mid">8–12%</td><td class="val-bad">&lt;5%</td></tr><tr><td>Cyclicals</td><td class="val-good">Нестабільний</td><td class="val-mid">—</td><td class="val-bad">Не покладайся на 5Y EPS</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Далекі прогнози часто завищені.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="sales-5y" data-search="sales past 5y revenue — past 5 years growth історичний cagr виручки за 5 років.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Sales past 5Y</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Revenue — Past 5 Years Growth</span>Історичний CAGR виручки за 5 років.</span>
+            </span>
+            <p class="metric-summary">Історичний CAGR виручки за 5 років.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Факт, не прогноз. Показує, чи бізнес реально зростав.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">CAGR Revenue (5Y)</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>EPS growth, margin trend.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Quality screening.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Revenue CAGR ≥ EPS CAGR (operating leverage).</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Revenue стагнує, EPS росте лише за buybacks.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Quality growth</td><td class="val-good">&gt;10%</td><td class="val-mid">5–10%</td><td class="val-bad">&lt;3%</td></tr><tr><td>Mature</td><td class="val-good">3–7%</td><td class="val-mid">0–3%</td><td class="val-bad">Негативний</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> M&amp;A-driven revenue growth vs organic.
+          </div>
+        </div>
+      </article>
+      </div>
+    </section>
+
+    <section class="section" id="sec-ownership" data-section="7">
+      <div class="section-header">
+        <h2>7. АКЦІЇ ТА ВЛАСНІСТЬ</h2>
+        <button type="button" class="section-toggle" aria-expanded="true">Згорнути</button>
+      </div>
+      <div class="section-body">
+      <article class="metric collapsed" id="short-float" data-search="short float short interest (% of float) частка публічного float у шорті.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Short Float</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Short Interest (% of Float)</span>Частка публічного float у шорті.</span>
+            </span>
+            <p class="metric-summary">Частка публічного float у шорті.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Високий short — scepticism або potential squeeze. Не сам по собі sell signal.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Shares Sold Short / Float × 100%</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Сектор, days to cover, trend.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Meme stocks, turnaround, risk management.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Низький short + сильний фундаментал.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Short ↑ + погані earnings + high DTC.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Typical</td><td class="val-good">&lt;5%</td><td class="val-mid">5–15%</td><td class="val-bad">&gt;20% — high attention</td></tr><tr><td>Former meme</td><td class="val-good">Volatile</td><td class="val-mid">—</td><td class="val-bad">Short covering rally</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Short squeeze ≠ fundamentals improve.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="insider-own" data-search="insider own insider ownership частка акцій у менеджменту та директорів.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Insider Own</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Insider Ownership</span>Частка акцій у менеджменту та директорів.</span>
+            </span>
+            <p class="metric-summary">Частка акцій у менеджменту та директорів.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Skin in the game — інтереси вирівняні з акціонерами.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Insider Shares / Shares Outstanding</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Зміни за Form 4 (buy/sell).</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Small cap, founder-led.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Insider buying на просадці.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Mass insider selling без пояснення.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Founder-led</td><td class="val-good">10–30%+</td><td class="val-mid">5–10%</td><td class="val-bad">&lt;2% без alignment</td></tr><tr><td>Mega cap</td><td class="val-good">0.1–2%</td><td class="val-mid">—</td><td class="val-bad">—</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Високий % через founder lock-up, не купівлі.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="inst-own" data-search="inst own institutional ownership частка у фондів, пенсійних та інших інституцій.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Inst Own</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Institutional Ownership</span>Частка у фондів, пенсійних та інших інституцій.</span>
+            </span>
+            <p class="metric-summary">Частка у фондів, пенсійних та інших інституцій.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Високий % — ліквідність і scrutiny; низький — можливо overlooked.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Institutional Shares / Outstanding</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Зміни quarter-over-quarter (13F).</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Liquidity, index inclusion.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Зростання inst ownership при покращенні KPI.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Institutions exit масово.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Large cap</td><td class="val-good">60–90%</td><td class="val-mid">40–60%</td><td class="val-bad">&lt;30% illiquid?</td></tr><tr><td>Small cap</td><td class="val-good">20–50%</td><td class="val-mid">10–20%</td><td class="val-bad">&lt;10% — low coverage</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> 99% inst — мало float для retail.
+          </div>
+        </div>
+      </article>
+      </div>
+    </section>
+
+    <section class="section" id="sec-technical" data-section="8">
+      <div class="section-header">
+        <h2>8. ТЕХНІЧНІ ПОКАЗНИКИ</h2>
+        <button type="button" class="section-toggle" aria-expanded="true">Згорнути</button>
+      </div>
+      <div class="section-body">
+      <article class="metric collapsed" id="rsi" data-search="rsi (14) relative strength index (14-day) імпульс: перекупленість / перепроданість.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">RSI (14)</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Relative Strength Index (14-day)</span>Імпульс: перекупленість / перепроданість.</span>
+            </span>
+            <p class="metric-summary">Імпульс: перекупленість / перепроданість.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>&gt;70 перекуплено, &lt;30 перепродано. Не прогноз фундаменталу.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">100 − (100 / (1 + RS)), RS = avg gain / avg loss</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Тренд + volume + support/resistance.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Таймінг входу/виходу, swing trading.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>RSI divergence + підтвердження фундаменталом.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Купівля лише через RSI без thesis.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Range-bound</td><td class="val-good">30–70 mean revert</td><td class="val-mid">—</td><td class="val-bad">Extremes fade</td></tr><tr><td>Strong uptrend</td><td class="val-good">40–80</td><td class="val-mid">—</td><td class="val-bad">&lt;30 — dip buy zone?</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> У сильному тренді RSI може довго бути &gt;70.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="beta" data-search="beta beta (market volatility) чутливість акції до руху ринку (зазвичай s&amp;p 500).">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Beta</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Beta (Market Volatility)</span>Чутливість акції до руху ринку (зазвичай S&amp;P 500).</span>
+            </span>
+            <p class="metric-summary">Чутливість акції до руху ринку (зазвичай S&amp;P 500).</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>β=1 рухається з ринком; β&gt;1 агресивніше; β&lt;1 defensive.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Covariance(stock, market) / Variance(market)</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Портфельний ризик, sector beta.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Asset allocation, hedging.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Beta відповідає твоєму risk tolerance.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>High beta без compensation у returns.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Defensive</td><td class="val-good">0.5–0.8</td><td class="val-mid">0.8–1.0</td><td class="val-bad">&gt;1.2 high vol</td></tr><tr><td>Growth tech</td><td class="val-good">1.2–1.8</td><td class="val-mid">1.0–1.2</td><td class="val-bad">&gt;2.0</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Beta нестабільний у кризі.
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="sma" data-search="sma20 / 50 / 200 simple moving average (20 / 50 / 200-day) середня ціна за n днів — тренд і підтримка.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">SMA20 / 50 / 200</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Simple Moving Average (20 / 50 / 200-day)</span>Середня ціна за N днів — тренд і підтримка.</span>
+            </span>
+            <p class="metric-summary">Середня ціна за N днів — тренд і підтримка.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Ціна вище SMA200 — довгостроковий uptrend (класично). Golden/death cross — SMA50 vs SMA200.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Sum(Close, N days) / N</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Multiple timeframes, volume.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Trend following, market timing overlay.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Фундаментал + тренд по SMA200.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Торгівля лише по перетинах без контексту.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Uptrend</td><td class="val-good">Price &gt; SMA50 &gt; SMA200</td><td class="val-mid">Mixed</td><td class="val-bad">Price &lt; SMA200</td></tr><tr><td>Pullback</td><td class="val-good">Bounce від SMA50</td><td class="val-mid">—</td><td class="val-bad">Break below SMA200</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Lag indicator — запізнілі сигнали.
+          </div>
+        </div>
+      </article>
+      </div>
+    </section>
+
+    <section class="section" id="sec-dividends" data-section="9">
+      <div class="section-header">
+        <h2>9. ДИВІДЕНДИ</h2>
+        <button type="button" class="section-toggle" aria-expanded="true">Згорнути</button>
+      </div>
+      <div class="section-body">
+      <article class="metric collapsed" id="div-yield" data-search="dividend yield dividend yield річний дивіденд як % від ціни акції.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Dividend Yield</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Dividend Yield</span>Річний дивіденд як % від ціни акції.</span>
+            </span>
+            <p class="metric-summary">Річний дивіденд як % від ціни акції.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>Поточний cash return акціонеру. Високий yield може бути trap.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Annual Dividend per Share / Price × 100%</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>Сектор, історичний yield, payout.</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Dividend investing, income portfolios.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Стабільний yield + помірний payout + FCF cover.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Yield spike + payout &gt;100%.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Dividend aristocrats</td><td class="val-good">2–4%</td><td class="val-mid">4–5%</td><td class="val-bad">&gt;6% — перевір sustainability</td></tr><tr><td>Growth</td><td class="val-good">0–1%</td><td class="val-mid">—</td><td class="val-bad">—</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> Yield ↑ бо ціна впала (trap).
+          </div>
+        </div>
+      </article>
+      <article class="metric collapsed" id="payout" data-search="payout ratio dividend payout ratio яка частка прибутку йде на дивіденди.">
+        <div class="metric-head">
+          <div class="metric-head-main">
+            <span class="tooltip-wrapper">
+              <strong class="metric-name">Payout Ratio</strong>
+              <span class="tooltip-text"><span class="tooltip-en">Dividend Payout Ratio</span>Яка частка прибутку йде на дивіденди.</span>
+            </span>
+            <p class="metric-summary">Яка частка прибутку йде на дивіденди.</p>
+          </div>
+          <button type="button" class="metric-toggle" aria-expanded="false">Детальніше</button>
+        </div>
+        <div class="metric-detail">
+          <div class="detail-grid">
+            <div class="detail-card">
+              <h3>🧠 Суть</h3>
+              <p>&lt;60% часто sustainable; &gt;100% — червоний прапор.</p>
+            </div>
+            <div class="detail-card">
+              <h3>📐 Формула</h3>
+              <p class="formula">Dividends / Net Income (or FCF)</p>
+            </div>
+            <div class="detail-card">
+              <h3>⚖️ Порівняння</h3>
+              <p>FCF payout, sector norms (REITs exception).</p>
+            </div>
+            <div class="detail-card">
+              <h3>🏢 Коли важливо</h3>
+              <p>Dividend safety analysis.</p>
+            </div>
+          </div>
+          <div class="examples-row">
+            <div class="example example-good">
+              <span class="example-label">✅ Сильний сигнал</span>
+              <p>Payout stable, room to grow dividend.</p>
+            </div>
+            <div class="example example-bad">
+              <span class="example-label">⚠️ Слабкий / ризик</span>
+              <p>Payout &gt;100% два+ роки.</p>
+            </div>
+          </div>
+          <div class="benchmark-block">
+            <h3>📊 Орієнтири по секторах</h3>
+            <p class="benchmark-note">Не абсолютні правила — контекст і тренд важливіші за одну цифру.</p>
+            <div class="table-wrap">
+              <table class="benchmark-table">
+                <thead><tr><th>Сектор</th><th>Сильно</th><th>Типово</th><th>Обережно</th></tr></thead>
+                <tbody><tr><td>Blue chip</td><td class="val-good">30–50%</td><td class="val-mid">50–70%</td><td class="val-bad">&gt;90%</td></tr><tr><td>REITs</td><td class="val-good">За FFO policy</td><td class="val-mid">—</td><td class="val-bad">Cut history</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pitfall">
+            <strong>💡 Пастка:</strong> REITs використовують FFO, не net income.
+          </div>
+        </div>
+      </article>
+      </div>
+    </section>
+      <div class="footer">
+        <h2>🎯 Як вчитися ефективно</h2>
+        <p>1. Знайди метрику в змісті або пошуком → прочитай короткий опис.</p>
+        <p>2. Відкрий «Детальніше» → порівняй орієнтири з сектором, який аналізуєш.</p>
+        <p>3. Завжди дивись тренд (3–5 років), а не одну цифру зі скрінера.</p>
+        <p><strong>Головне питання:</strong> скільки ти платиш за якість бізнесу та його майбутнє зростання?</p>
+      </div>
+    </main>
+  </div>
+  <script>
+    function setMetricToggle(btn, expanded) {
+      btn.setAttribute('aria-expanded', expanded);
+      btn.textContent = expanded ? 'Згорнути' : 'Детальніше';
+    }
+    function setSectionToggle(btn, expanded) {
+      btn.setAttribute('aria-expanded', expanded);
+      btn.textContent = expanded ? 'Згорнути' : 'Показати';
+    }
+
+    document.querySelectorAll('.section-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var section = btn.closest('.section');
+        section.classList.toggle('collapsed');
+        setSectionToggle(btn, !section.classList.contains('collapsed'));
+      });
+    });
+
+    document.querySelectorAll('.metric-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var metric = btn.closest('.metric');
+        metric.classList.toggle('collapsed');
+        setMetricToggle(btn, !metric.classList.contains('collapsed'));
+      });
+    });
+
+    var search = document.getElementById('search');
+    var noResults = document.getElementById('no-results');
+    search.addEventListener('input', function () {
+      var q = search.value.trim().toLowerCase();
+      var visible = 0;
+      document.querySelectorAll('.metric').forEach(function (el) {
+        var match = !q || (el.getAttribute('data-search') || '').indexOf(q) !== -1;
+        el.classList.toggle('hidden', !match);
+        if (match) visible++;
+      });
+      document.querySelectorAll('.section').forEach(function (sec) {
+        var any = sec.querySelector('.metric:not(.hidden)');
+        sec.classList.toggle('hidden', q.length > 0 && !any);
+        if (q && any) {
+          sec.classList.remove('collapsed');
+          setSectionToggle(sec.querySelector('.section-toggle'), true);
+        }
+      });
+      noResults.classList.toggle('visible', q.length > 0 && visible === 0);
+    });
+
+    document.getElementById('expand-all').addEventListener('click', function () {
+      document.querySelectorAll('.metric').forEach(function (m) {
+        m.classList.remove('collapsed');
+        setMetricToggle(m.querySelector('.metric-toggle'), true);
+      });
+      document.querySelectorAll('.section').forEach(function (s) {
+        s.classList.remove('collapsed');
+        setSectionToggle(s.querySelector('.section-toggle'), true);
+      });
+    });
+
+    document.getElementById('collapse-all').addEventListener('click', function () {
+      document.querySelectorAll('.metric').forEach(function (m) {
+        m.classList.add('collapsed');
+        setMetricToggle(m.querySelector('.metric-toggle'), false);
+      });
+    });
+
+    document.querySelectorAll('.metric').forEach(function (m) {
+      setMetricToggle(m.querySelector('.metric-toggle'), false);
+    });
+  </script>
+</body>
+</html>
